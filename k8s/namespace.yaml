@@ -1,0 +1,14 @@
+# ============================================================
+# NAMESPACE
+# ============================================================
+# Isolates all our resources into a dedicated namespace.
+# In production, you'd typically have separate namespaces for
+# each team, environment, or microservice.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: employee-app
+  labels:
+    app.kubernetes.io/name: employee-app
+    app.kubernetes.io/part-of: employee-platform
+    environment: dev

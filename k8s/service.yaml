@@ -1,0 +1,40 @@
+# ============================================================
+# SERVICE
+# ============================================================
+# Exposes the Deployment pods as a network service.
+# Provides a stable DNS name and load-balances across pods.
+apiVersion: v1
+kind: Service
+metadata:
+  name: employee-service
+  namespace: employee-app
+  labels:
+    app.kubernetes.io/name: employee-app
+    app.kubernetes.io/component: backend
+spec:
+  # --- Service Type ---
+  # NodePort: exposes the service on a static port (30080)
+  # on each node. Accessible at <node-ip>:30080.
+  # Kind maps this to localhost:30080 via the extraPortMappings
+  # we configured in kind-config.yaml.
+  type: NodePort
+
+  # --- Selector ---
+  # Must match the pod labels. The Service uses this to find
+  # which pods to route traffic to.
+  selector:
+    app.kubernetes.io/name: employee-app
+
+  ports:
+    - name: http
+      # Port the Service listens on INSIDE the cluster.
+      # Other pods access this at: employee-service.employee-app.svc:8080
+      port: 8080
+
+      # Port the container listens on (matches containerPort in Deployment).
+      targetPort: http
+
+      # Port exposed on the node's IP (accessible from your Windows host).
+      nodePort: 30080
+
+      protocol: TCP

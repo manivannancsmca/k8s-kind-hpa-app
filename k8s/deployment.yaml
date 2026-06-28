@@ -1,0 +1,190 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: employee-deployment
+  namespace: employee-app
+  labels:
+    app.kubernetes.io/name: employee-app
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/version: "0.0.1"
+    app.kubernetes.io/managed-by: kubectl
+
+spec:
+  # ---------------------------------------------------------------------------
+  # Number of Pods
+  # ---------------------------------------------------------------------------
+  replicas: 3
+
+  revisionHistoryLimit: 5
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: employee-app
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: employee-app
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/version: "0.0.1"
+
+    spec:
+
+      # -----------------------------------------------------------------------
+      # Graceful Shutdown
+      # -----------------------------------------------------------------------
+      terminationGracePeriodSeconds: 30
+
+      # -----------------------------------------------------------------------
+      # Pod Security Context
+      # -----------------------------------------------------------------------
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+
+        seccompProfile:
+          type: RuntimeDefault
+
+      # -----------------------------------------------------------------------
+      # Spread Pods Across Nodes
+      # -----------------------------------------------------------------------
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: employee-app
+
+      # -----------------------------------------------------------------------
+      # Writable Volume for /tmp
+      # Required because readOnlyRootFilesystem=true
+      # -----------------------------------------------------------------------
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+
+      containers:
+        - name: employee-app
+
+          image: k8s-kind-hpa-app:0.0.1
+
+          # Kind cluster only
+          imagePullPolicy: Never
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          # -------------------------------------------------------------------
+          # Environment Variables
+          # -------------------------------------------------------------------
+          env:
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms256m -Xmx512m"
+
+            - name: SPRING_PROFILES_ACTIVE
+              value: "default"
+
+            - name: MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED
+              value: "true"
+
+          # -------------------------------------------------------------------
+          # Resource Requests & Limits
+          # -------------------------------------------------------------------
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+              ephemeral-storage: "1Gi"
+
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+              ephemeral-storage: "2Gi"
+
+          # -------------------------------------------------------------------
+          # Startup Probe
+          # Gives Spring Boot enough time to start.
+          # Maximum startup time:
+          # 10 + (30 × 5) = 160 seconds
+          # -------------------------------------------------------------------
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+
+          # -------------------------------------------------------------------
+          # Liveness Probe
+          # -------------------------------------------------------------------
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # -------------------------------------------------------------------
+          # Readiness Probe
+          # -------------------------------------------------------------------
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # -------------------------------------------------------------------
+          # Lifecycle
+          # -------------------------------------------------------------------
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep 5
+
+          terminationMessagePolicy: FallbackToLogsOnError
+
+          # -------------------------------------------------------------------
+          # Mount Writable /tmp
+          # -------------------------------------------------------------------
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+
+          # -------------------------------------------------------------------
+          # Container Security
+          # -------------------------------------------------------------------
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+
+            allowPrivilegeEscalation: false
+
+            readOnlyRootFilesystem: true
+
+            capabilities:
+              drop:
+                - ALL

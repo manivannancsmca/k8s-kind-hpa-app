@@ -1,0 +1,71 @@
+# ============================================================
+# HORIZONTAL POD AUTOSCALER (HPA)
+# ============================================================
+# Automatically scales the number of pod replicas based on
+# observed CPU utilization (or custom metrics).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: employee-hpa
+  namespace: employee-app
+  labels:
+    app.kubernetes.io/name: employee-app
+spec:
+  # --- Scale Target ---
+  # Points to our Deployment. HPA will adjust spec.replicas
+  # on this Deployment.
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: employee-deployment
+
+  # --- Replica Bounds ---
+  minReplicas: 3       # Never go below 2 (HA)
+  maxReplicas: 5       # Never exceed 5 (cost control)
+
+  # --- Metrics ---
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        # Scale up when average CPU usage across all pods > 50%
+        # of their requested CPU (250m).
+        #
+        # Example with 2 pods:
+        #   Pod 1 uses 180m CPU (72% of 250m request)
+        #   Pod 2 uses 200m CPU (80% of 250m request)
+        #   Average = 76% → ABOVE 50% threshold → SCALE UP
+        #
+        # The HPA formula:
+        #   desiredReplicas = ceil(currentReplicas * (currentMetricValue / targetMetricValue))
+        #   = ceil(2 * (0.76 / 0.50))
+        #   = ceil(3.04)
+        #   = 4 replicas
+        target:
+          type: Utilization
+          averageUtilization: 50
+
+  # --- Behavior (Scaling Policies) ---
+  # Controls HOW FAST the HPA scales up and down.
+  behavior:
+    # Scale UP: react quickly (add 2 pods every 15 seconds)
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2                   # Add at most 2 pods at a time
+          periodSeconds: 15          # Every 15 seconds
+        - type: Percent
+          value: 100                 # OR double the pod count
+          periodSeconds: 15
+      selectPolicy: Max              # Use whichever policy scales MORE
+
+    # Scale DOWN: be conservative (remove 1 pod every 60 seconds)
+    # This prevents flapping (scale down → load spike → scale up)
+    scaleDown:
+      stabilizationWindowSeconds: 300   # Wait 5 minutes before scaling down
+      policies:
+        - type: Pods
+          value: 1                      # Remove at most 1 pod at a time
+          periodSeconds: 60             # Every 60 seconds
+      selectPolicy: Min                 # Use whichever policy scales LESS

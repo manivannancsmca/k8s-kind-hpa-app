@@ -1,0 +1,36 @@
+# kind-config.yaml
+# ============================================================
+# Kind Cluster Configuration
+# ============================================================
+# This configures a multi-node Kind cluster with a specific
+# Kubernetes version and port mappings for our application.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+nodes:
+  # --- Control Plane Node ---
+  - role: control-plane
+    kubeadmConfigPatches:
+      # Allow the control plane to schedule pods (by default it's
+      # tainted to only run control-plane components).
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # Map host port 30080 → container port 30080
+      # This lets you access NodePort services from localhost.
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+        listenAddress: "0.0.0.0"
+
+  # --- Worker Node 1 ---
+  - role: worker
+
+  # --- Worker Node 2 ---
+  - role: worker
+  
+  # --- Worker Node 3 ---
+  - role: worker
