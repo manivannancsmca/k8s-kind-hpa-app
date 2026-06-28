@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.k8s-kind-hpa-app</groupId>
 	<artifactId>k8s-kind-hpa-app</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.1</version>
 	<name/>
 	<description/>
 	<url/>
@@ -94,7 +94,8 @@
 	</dependencies>
 
 	<build>
-		<plugins>
+		<finalName>${artifactId}-${version}</finalName>
+		<plugins>			
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
