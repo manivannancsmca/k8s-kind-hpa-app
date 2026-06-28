@@ -5,6 +5,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.k8s_kind_hpa_app.exception.DuplicateResourceException;
+import com.k8s_kind_hpa_app.exception.ResourceNotFoundException;
 import com.k8s_kind_hpa_app.model.Employee;
 import com.k8s_kind_hpa_app.repository.EmployeeRepository;
 
@@ -19,6 +21,12 @@ public class EmployeeServiceImpl implements EmployeeService {
 
     @Override
     public Employee create(Employee employee) {
+
+        if (repository.existsByEmail(employee.getEmail())) {
+            throw new DuplicateResourceException(
+                    "Email already exists : " + employee.getEmail());
+        }
+
         return repository.save(employee);
     }
 
@@ -26,7 +34,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional(readOnly = true)
     public Employee getById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException(
+                .orElseThrow(() -> new ResourceNotFoundException(
                         "Employee not found with id: " + id));
     }
 
